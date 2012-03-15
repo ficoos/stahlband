@@ -1,0 +1,66 @@
+#!/usr/bin/python
+# Copyright 2012 Saggi Mizrahi <ficoos *at* gmail.com>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+# Refer to the README and COPYING files for full details of the license
+#
+
+import sys
+import os
+import stat
+from glob import iglob
+
+def getPipeName(pid, fd):
+    return os.path.basename(os.readlink("/proc/%d/fd/%d" % (pid, fd)))
+
+try:
+    PID = int(sys.argv[1])
+    FD = int(sys.argv[2])
+except:
+    print "usage: stahlband <PID> <FD>"
+    exit(1)
+
+try:
+    pd = getPipeName(PID, FD)
+except Exception as e:
+    print e
+    exit(1)
+
+if not pd.startswith("pipe"):
+    print "This is not a pipe"
+    exit(1)
+
+for path in iglob("/proc/*/fd/*"):
+    _, _, pid, _, fd = path.split("/")
+    if pid == "self":
+        continue
+
+    pid = int(pid)
+    fd = int(fd)
+    try:
+        name = getPipeName(pid, fd)
+    except OSError:
+        continue
+
+    if name != pd:
+        continue
+
+    mode = os.lstat(path).st_mode
+    kind = ""
+    kind += "r" if mode & stat.S_IRUSR else ""
+    kind += "w" if mode & stat.S_IWUSR else ""
+
+    print "PID:", pid, "FD:", fd, "KIND:", kind
